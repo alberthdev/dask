@@ -471,7 +471,7 @@ and stopping index per file, or starting and stopping index of the global
 dataset."""
 
 def _read_single_hdf(path, key, start=0, stop=None, columns=None,
-                     chunksize=int(1e6), lock=None):
+                     chunksize=int(1e6), lock=None, **kwargs):
     """
     Read a single hdf file into a dask.dataframe. Used for each file in
     read_hdf.
@@ -483,7 +483,7 @@ def _read_single_hdf(path, key, start=0, stop=None, columns=None,
         given path. Also get the index of the last row of data for each matched
         key.
         """
-        with pd.HDFStore(path) as hdf:
+        with pd.HDFStore(path, **kwargs) as hdf:
             keys = [k for k in hdf.keys() if fnmatch(k, key)]
             stops = []
             for k in keys:
@@ -513,7 +513,7 @@ def _read_single_hdf(path, key, start=0, stop=None, columns=None,
         dsk = dict(((name, i), (_pd_read_hdf, path, key, lock,
                                  {'start': s,
                                   'stop': s + chunksize,
-                                  'columns': empty.columns}))
+                                  'columns': empty.columns}.update(kwargs)))
                     for i, s in enumerate(range(start, stop, chunksize)))
 
         divisions = [None] * (len(dsk) + 1)
@@ -541,7 +541,7 @@ def _pd_read_hdf(path, key, lock, kwargs):
 
 @wraps(pd.read_hdf)
 def read_hdf(pattern, key, start=0, stop=None, columns=None,
-             chunksize=1000000, lock=True):
+             chunksize=1000000, lock=True, **kwargs):
     """
     Read hdf files into a dask dataframe. Like pandas.read_hdf, except it we
     can read multiple files, and read multiple keys from the same file by using
@@ -586,7 +586,7 @@ def read_hdf(pattern, key, start=0, stop=None, columns=None,
     from .multi import concat
     return concat([_read_single_hdf(path, key, start=start, stop=stop,
                                     columns=columns, chunksize=chunksize,
-                                    lock=lock)
+                                    lock=lock, **kwargs)
                    for path in paths])
 
 
